@@ -7,6 +7,7 @@ package com.company;
 import java.util.Random;
 
 public class FlightInfo {
+
     public int height;
     public int speed;
     public float latitude;

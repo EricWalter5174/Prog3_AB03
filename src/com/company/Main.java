@@ -12,6 +12,7 @@ public class Main {
 			var blackbox = new Ringbuffer<FlightInfo>(3);
 			//blackbox.toggleFixedCapacity();
 			//blackbox.setFifo();
+
 			blackbox.push(FlightInfo.Random());
 			blackbox.push(FlightInfo.Random());
 			System.out.println(blackbox.pop());

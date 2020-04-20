@@ -23,6 +23,7 @@ public class Ringbuffer<T> implements Deque<T>, RandomAccess, Serializable, Clon
     Ringbuffer(int capacity) {
         this.capacity = capacity;
         occupied.add(false);
+
     }
 
     public void setLifo() {
