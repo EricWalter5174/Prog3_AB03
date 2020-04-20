@@ -1,5 +1,9 @@
 package com.company;
-
+/*
+ * Autor: Eric Walter
+ * Prog3 AB03
+ * Hochschule Osnabrueck
+ * */
 import java.io.Serializable;
 import java.util.*;
 
@@ -9,83 +13,121 @@ public class Ringbuffer<T> implements Deque<T>, RandomAccess, Serializable, Clon
     private int head = 0;
     private int tail = 0;
     private int size = 0;
+    private int unread = 0;
     private int capacity;
     private boolean fixedCapacity = false;
     private boolean discarding = false;
+    private boolean fifo = false;
+    private Stack<Integer> fifoTail = new Stack<Integer>();
 
     Ringbuffer(int capacity) {
         this.capacity = capacity;
         occupied.add(false);
     }
-    private boolean canWrite() {
-        return getNextHeadPosition() == tail;
+
+    public void setLifo() {
+        fifo = false;
     }
 
-    private int getNextHeadPosition() {
-        if(head  == capacity-1) return 0;
-        return head+1;
-    }
-    public void setLifo(){
-
+    public void setFifo() {
+        fifo = true;
     }
 
-    public void setFifo(){
-
-    }
-
-    public void toggleDiscarding(){
-        if(discarding){
+    public void toggleDiscarding() {
+        if (discarding) {
             discarding = false;
             System.out.println("Information: Discarding of elements has been DISABLED");
-        }
-        else {
+        } else {
             discarding = true;
             System.out.println("Information: Discarding of elements has been ENABLED");
         }
     }
 
-    public void toggleFixedCapacity(){
-        if(fixedCapacity){
+    public void toggleFixedCapacity() {
+        if (fixedCapacity) {
             fixedCapacity = false;
             System.out.println("Information: Ringbuffer capacity is now VARIABLE");
-        }
-        else {
+        } else {
             fixedCapacity = true;
             System.out.println("Information: Ringbuffer capacity is now FIXED");
         }
     }
 
-    private void incrementHead(){
-        //increase capacity of buffer if the buffer is full and the buffer capacity is variable
-        if(elements.size() == capacity && !fixedCapacity){
-            capacity = capacity*2;
+    private void incrementHead() {
+        if (fifo) {
+            fifoTail.add(head);
         }
-        //reset head position if head reached rightmost bound
-        if(head == capacity-1){
+
+        if (elements.size() == capacity && !fixedCapacity) {
+            capacity = capacity * 2;
+        }
+
+        if (head == capacity - 1) {
             head = 0;
-        }else {
+        } else {
             head++;
         }
     }
 
-    private void incrementTail(){
-        if(tail == capacity-1){
+    private void incrementTail() {
+        if (tail == capacity - 1) {
             tail = 0;
+        } else tail++;
+    }
+
+    @Override
+    public T pop() {
+        unread = Math.max(unread--, 0);
+        return fifo
+                ? popFifo()
+                : popLifo();
+    }
+
+    public T popFifo() {
+        return elements.get(fifoTail.pop());
+    }
+
+    public T popLifo() {
+        var oldTail = tail;
+        if (occupied.get(tail)) {
+            incrementTail();
+            size--;
         }
-        tail++;
+
+        return elements.get(oldTail);
+    }
+
+    @Override
+    public boolean add(T t) {
+        if (unread == capacity && !discarding) throw new IllegalStateException();
+        if (fifo && fifoTail.size() == capacity) throw new IllegalStateException();
+        if (elements.size() <= capacity) {
+            if (elements.size() - 1 >= head) {
+                elements.set(head, t);
+                occupied.set(head, true);
+            } else {
+                elements.add(head, t);
+                occupied.add(head, true);
+            }
+            unread++;
+            size++;
+            incrementHead();
+            return true;
+        }
+        return false;
     }
 
     @Override
     public void addFirst(T t) {
-        if(size < capacity){
+        if (size < capacity) {
             elements.set(0, t);
         }
     }
 
     @Override
     public void addLast(T t) {
-        if(size < capacity){
-            elements.set(capacity-1, t);
+        if (size < capacity) {
+            elements.set(capacity - 1, t);
         }
     }
 
@@ -94,22 +136,22 @@ public class Ringbuffer<T> implements Deque<T>, RandomAccess, Serializable, Clon
         if (size < capacity) {
             addFirst(t);
             return true;
-        }else
+        } else
             return false;
     }
 
     @Override
     public boolean offerLast(T t) {
-        if (size< capacity) {
+        if (size < capacity) {
             addLast(t);
             return true;
-        }else
+        } else
             return false;
     }
 
     @Override
     public T removeFirst() {
-        if(size > 0) {
+        if (size > 0) {
             tail++;
             return elements.get(0);
         }
@@ -118,15 +160,16 @@ public class Ringbuffer<T> implements Deque<T>, RandomAccess, Serializable, Clon
 
     @Override
     public T removeLast() {
-        if(occupied.get(capacity-1))
-            return elements.get(capacity-1);
-        else
-            return null;
+            return occupied.get(capacity - 1)
+                    ?   elements.get(capacity - 1)
+                    :   null;
     }
 
     @Override
     public T pollFirst() {
-        return null;
+        return elements.size() > 0
+                ? elements.get(0)
+                : null;
     }
 
     @Override
@@ -154,8 +197,8 @@ public class Ringbuffer<T> implements Deque<T>, RandomAccess, Serializable, Clon
 
     @Override
     public T peekLast() {
-        if (occupied.get(capacity-1)) {
-            return elements.get(capacity-1);
+        if (occupied.get(capacity - 1)) {
+            return elements.get(capacity - 1);
         }
         return null;
     }
@@ -163,7 +206,7 @@ public class Ringbuffer<T> implements Deque<T>, RandomAccess, Serializable, Clon
     @Override
     public boolean removeFirstOccurrence(Object o) {
         for (int i = 0; i < size; i++) {
-            if(elements.get(i).equals(o)){
+            if (elements.get(i).equals(o)) {
                 occupied.set(i, false);
                 return true;
             }
@@ -174,7 +217,7 @@ public class Ringbuffer<T> implements Deque<T>, RandomAccess, Serializable, Clon
     @Override
     public boolean removeLastOccurrence(Object o) {
         for (int i = size; i > 0; i--) {
-            if(elements.get(i).equals(o)){
+            if (elements.get(i).equals(o)) {
                 occupied.set(i, false);
                 return true;
             }
@@ -183,28 +226,8 @@ public class Ringbuffer<T> implements Deque<T>, RandomAccess, Serializable, Clon
     }
 
     @Override
-    public boolean add(T t) {
-        if(head == tail && occupied.get(tail)){
-            throw new IllegalStateException();
-        }
-        if(elements.size() <= capacity){
-            if(elements.size()-1 >= head) {
-                elements.set(head, t);
-                occupied.set(head, true);
-            }else {
-                elements.add(head, t);
-                occupied.add(head, true);
-            }
-            size++;
-            incrementHead();
-            return true;
-        }
-        return false;
-    }
-
-    @Override
     public boolean offer(T t) {
-        if(size < capacity){
+        if (size < capacity) {
             elements.add(head, t);
             occupied.add(head, true);
             incrementHead();
@@ -219,15 +242,15 @@ public class Ringbuffer<T> implements Deque<T>, RandomAccess, Serializable, Clon
             incrementTail();
             size--;
             return tail == 0
-                    ?   elements.get(capacity-1)
-                    :   elements.get(tail-1);
+                    ? elements.get(capacity - 1)
+                    : elements.get(tail - 1);
         }
         return null;
     }
 
     @Override
     public T poll() {
-        if(elements.isEmpty()){
+        if (elements.isEmpty()) {
             return null;
         }
         return remove();
@@ -266,17 +289,6 @@ public class Ringbuffer<T> implements Deque<T>, RandomAccess, Serializable, Clon
     @Override
     public void push(T t) {
         add(t);
-    }
-
-    @Override
-    public T pop() {
-        if(occupied.get(tail)) {
-            incrementTail();
-            size--;
-        }
-        return tail == 0
-                ? elements.get(capacity-1)
-                : elements.get(tail-1);
     }
 
     @Override
